@@ -1,104 +1,152 @@
+/******************************************************************************
+ *cr
+ *cr            (C) Copyright 2010 The Board of Trustees of the
+ *cr                        University of Illinois
+ *cr                         All Rights Reserved
+ *cr
+ ******************************************************************************/
 
-#include <cuda_runtime.h>
-#include <time.h>
 #include <stdio.h>
+#include <time.h>
+#include "support.h"
+#include "kernel.cu"
 
-__global__ void add_vector(float *c, const float *a, const float *b)
-{
-    int i = threadIdx.x;
-    c[i] = a[i] + b[i];
-}
+int main(int argc, char**argv) {
 
-//for an array of size, fill it with a random float in [0,1]
-void random_floats(float *A, int size)
-{
-	for (int i = 0; i < size; i++)
+    Timer timer;
+    cudaError_t cuda_ret;
+    time_t t;
+
+
+    // Initialize host variables ----------------------------------------------
+
+    printf("\nSetting up the problem..."); fflush(stdout);
+    startTime(&timer);
+
+    unsigned int n;
+    if(argc == 1) {
+        n = 10000;
+    } else if(argc == 2) {
+        n = atoi(argv[1]);
+    } else {
+        printf("\n    Invalid input parameters!"
+           "\n    Usage: ./vecadd               # Vector of size 10,000 is used"
+           "\n    Usage: ./vecadd <m>           # Vector of size m is used"
+           "\n");
+        exit(0);
+    }
+
+    /* Intializes random number generator */
+    srand((unsigned) time(&t));    
+    
+    
+    float* A_h = (float*) malloc( sizeof(float)*n );
+    float* B_h = (float*) malloc( sizeof(float)*n );
+    float* C_h = (float*) malloc( sizeof(float)*n );
+
+	// check if the vectors were properly allocated on host
+	if (A_h == 0 || B_h == 0 || C_h == 0)
 	{
-		A[i] = ((float) rand()) / ((float) RAND_MAX);
-	}
-}
-
-
-float my_abs(float a)
-{
-	if (a< 0)
-		return -1 * a;
-	return a;
-}
-
-//finds the machine epsilon for a float
-float find_eps()
-{
-	float machEps = (float) 1.0;
-
-        do {
-           machEps /= (float) 2.0;
-        }
-        while ((float)(1.0 + machEps) != 1.0);
-
-        return machEps;
-}
-
-int main()
-{
-	srand(time(0));
-	const int SIZE = 512;
-	size_t bytes = 512 * sizeof(float);
-
-	//initialize out pointers on host and device
-	float *A, *B, *C;
-	float *dA, *dB, *dC;
-
-	//allocate vectors on host
-	A = (float*)malloc(bytes);
-	random_floats(A, SIZE);
-	B = (float*)malloc(bytes);
-	random_floats(B, SIZE);
-	C = (float*)malloc(bytes);
-
-	//alocate vectors on device
-	cudaMalloc((void**)&dA, bytes);
-	cudaMalloc((void**)&dB, bytes);
-	cudaMalloc((void**)&dC, bytes);
-
-	//copy the vector from host to device
-	cudaMemcpy(dA, A, bytes, cudaMemcpyHostToDevice);
-	cudaMemcpy(dB, B, bytes, cudaMemcpyHostToDevice);
-
-	//perform the addition
-	add_vector<<<1, SIZE >>>(dC, dB, dA);
-
-	//copy our answer back to the cpu
-	cudaMemcpy(C, dC, bytes, cudaMemcpyDeviceToHost);
-
-	cudaFree(dA);
-	cudaFree(dB);
-	cudaFree(dC);
-
-	//check for correctness
-	float eps = find_eps();
-	
-	int worked = 0;
-	for (int i = 0; i < SIZE; i++)
-	{
-		float rel_error = my_abs( ( (A[i] + B[i]) - C[i]) /C[i]);
-
-		if ( rel_error > eps)
-		{
-			printf("messed up on index %d\n", i);
-			printf("Calculation did not work\n");
-			worked = 1;
-			break;
-		}
+		printf("could not allocate vectors on host.\n");
+		exit(EXIT_FAILURE);
 	}
 
-	if (worked == 0)
-		printf("Congrats, everyting worked!\n");
-	
 
-	//free up the host memory
-	free(A);
-	free(B);
-	free(C);
+    for (unsigned int i=0; i < n; i++) { A_h[i] = (rand()%100)/100.00; }
+    for (unsigned int i=0; i < n; i++) { B_h[i] = (rand()%100)/100.00; }
+
+
+    stopTime(&timer); printf("%f s\n", elapsedTime(timer));
+    printf("    Vector size = %u\n", n);
+
+    // Allocate device variables ----------------------------------------------
+
+    printf("Allocating device variables..."); fflush(stdout);
+    startTime(&timer);
+
+    //INSERT CODE HERE
+	float *A_d, *B_d, *C_d;
+	
+	if (cudaMalloc((void**)&A_d, sizeof(float)*n) != cudaSuccess)
+	{
+		printf("%s\n", cudaGetErrorString(cuda_ret));
+		exit(EXIT_FAILURE);
+	}
+
+	if (cudaMalloc((void**)&B_d, sizeof(float)*n) != cudaSuccess)
+	{
+		printf("%s\n", cudaGetErrorString(cuda_ret));
+		exit(EXIT_FAILURE);
+	}
+
+	if (cudaMalloc((void**)&C_d, sizeof(float)*n) != cudaSuccess)
+	{
+		printf("%s\n", cudaGetErrorString(cuda_ret));
+		exit(EXIT_FAILURE);
+	}
+
+    cudaDeviceSynchronize();
+    stopTime(&timer); printf("%f s\n", elapsedTime(timer));
+
+    // Copy host variables to device ------------------------------------------
+
+    printf("Copying data from host to device..."); fflush(stdout);
+    startTime(&timer);
+
+    //INSERT CODE HERE
+
+
+
+
+
+
+    cudaDeviceSynchronize();
+    stopTime(&timer); printf("%f s\n", elapsedTime(timer));
+
+    // Launch kernel ----------------------------------------------------------
+
+    printf("Launching kernel..."); fflush(stdout);
+    startTime(&timer);
+
+    //INSERT CODE HERE
+
+
+
+
+
+    cuda_ret = cudaDeviceSynchronize();
+	if(cuda_ret != cudaSuccess) FATAL("Unable to launch kernel");
+    stopTime(&timer); printf("%f s\n", elapsedTime(timer));
+
+    // Copy device variables from host ----------------------------------------
+
+    printf("Copying data from device to host..."); fflush(stdout);
+    startTime(&timer);
+
+    //INSERT CODE HERE
+
+
+
+    cudaDeviceSynchronize();
+    stopTime(&timer); printf("%f s\n", elapsedTime(timer));
+
+    // Verify correctness -----------------------------------------------------
+
+    printf("Verifying results..."); fflush(stdout);
+
+    verify(A_h, B_h, C_h, n);
+
+    // Free memory ------------------------------------------------------------
+
+    free(A_h);
+    free(B_h);
+    free(C_h);
+
+    //INSERT CODE HERE
+
+
+
+
+    return 0;
 
 }
